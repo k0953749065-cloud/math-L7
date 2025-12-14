@@ -1,1090 +1,1041 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小學數學冒險王：圓周率大挑戰</title>
-    
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { 
+  Play, BookOpen, Calculator, Award, 
+  Heart, Star, RefreshCw, ChevronRight, 
+  HelpCircle, CheckCircle, XCircle, Trophy,
+  Map, Trees, Anchor, Castle, Rocket, Wand2,
+  Home, ArrowRight, MousePointer2, GraduationCap,
+  Mic, Square, Volume2, RotateCcw, Music,
+  PieChart, Ruler, Scissors, Shapes, Circle
+} from 'lucide-react';
 
-    <style>
-        /* Confetti Animations */
+// --- 資料與題庫 ---
+
+const THEMES = {
+  forest: { name: '迷霧森林', color: 'bg-green-100', accent: 'text-green-600', button: 'bg-green-500 hover:bg-green-600', icon: Trees },
+  ocean: { name: '深藍海洋', color: 'bg-blue-100', accent: 'text-blue-600', button: 'bg-blue-500 hover:bg-blue-600', icon: Anchor },
+  castle: { name: '幾何城堡', color: 'bg-slate-100', accent: 'text-slate-600', button: 'bg-slate-500 hover:bg-slate-600', icon: Castle },
+  space: { name: '無重力太空', color: 'bg-indigo-100', accent: 'text-indigo-600', button: 'bg-indigo-500 hover:bg-indigo-600', icon: Rocket },
+  magic: { name: '魔法學院', color: 'bg-purple-100', accent: 'text-purple-600', button: 'bg-purple-500 hover:bg-purple-600', icon: Wand2 },
+};
+
+const LEVELS = [
+  {
+    id: 'forest',
+    title: '第一關：認識圓周率',
+    desc: '找出圓周長與直徑的祕密關係！',
+    theme: 'forest',
+    learnSteps: [
+      { text: "歡迎來到迷霧森林！我們要先認識圓的祕密。", highlight: "intro" },
+      { text: "不管圓是大是小，只要用「圓周長 ÷ 直徑」，答案都大約是 3.14。", highlight: "concept" },
+      { text: "這個 3.14 我們叫它「圓周率」。", highlight: "term" },
+      { text: "所以公式是：圓周長 = 直徑 × 3.14", highlight: "formula" },
+      { text: "範例：直徑 10 公分的圓，周長是 10 × 3.14 = 31.4 公分。", highlight: "example" }
+    ],
+    problems: [
+      {
+        q: '直徑 10 公分的圓，圓周長大約是多少公分？(圓周率以 3.14 計算)',
+        options: ['31.4', '314', '15.7', '62.8'],
+        ans: '31.4',
+        hint: '圓周長 = 直徑 × 3.14',
+        explanation: '圓周長公式為：直徑 × 3.14。\n10 × 3.14 = 31.4 (公分)'
+      },
+      {
+        q: '一個圓的直徑變成原來的 2 倍，圓周長會變成原來的幾倍？',
+        options: ['2 倍', '3.14 倍', '4 倍', '不變'],
+        ans: '2 倍',
+        hint: '圓周長和直徑是成正比的喔！',
+        explanation: '圓周長 = 直徑 × 3.14。如果直徑 × 2，圓周長也會跟著 × 2。'
+      },
+      {
+        q: '半徑 5 公分的圓，圓周長是多少？',
+        options: ['15.7', '31.4', '10', '25'],
+        ans: '31.4',
+        hint: '先求出直徑，直徑是半徑的 2 倍。',
+        explanation: '1. 先算直徑：5 × 2 = 10 (公分)\n2. 再算圓周長：10 × 3.14 = 31.4 (公分)'
+      }
+    ]
+  },
+  {
+    id: 'ocean',
+    title: '第二關：尋找直徑',
+    desc: '已知圓周長，你能推算出直徑嗎？',
+    theme: 'ocean',
+    learnSteps: [
+      { text: "在深藍海洋中，我們要學會反向思考。", highlight: "intro" },
+      { text: "既然「圓周長 = 直徑 × 3.14」...", highlight: "recall" },
+      { text: "那如果知道圓周長，要怎麼求直徑呢？", highlight: "question" },
+      { text: "沒錯！就是「直徑 = 圓周長 ÷ 3.14」。", highlight: "formula" },
+      { text: "範例：圓周長 62.8，直徑就是 62.8 ÷ 3.14 = 20。", highlight: "example" }
+    ],
+    problems: [
+      {
+        q: '一個圓的圓周長是 62.8 公分，請問直徑是多少公分？',
+        options: ['10', '20', '30', '40'],
+        ans: '20',
+        hint: '直徑 = 圓周長 ÷ 3.14',
+        explanation: '利用逆運算：62.8 ÷ 3.14 = 20 (公分)'
+      },
+      {
+        q: '圓周長 18.84 公尺的圓形花圃，半徑是多少公尺？',
+        options: ['3', '6', '9', '12'],
+        ans: '3',
+        hint: '先算出直徑，再除以 2 變成半徑。',
+        explanation: '1. 直徑：18.84 ÷ 3.14 = 6 (公尺)\n2. 半徑：6 ÷ 2 = 3 (公尺)'
+      },
+      {
+        q: '測距輪滾一圈是 157 公分，這個輪子的直徑約是多少？',
+        options: ['25', '50', '100', '157'],
+        ans: '50',
+        hint: '滾一圈的長度就是圓周長。',
+        explanation: '157 ÷ 3.14 = 50 (公分)'
+      }
+    ]
+  },
+  {
+    id: 'castle',
+    title: '第三關：扇形的祕密',
+    desc: '計算扇形的弧長與幾分之幾圓。',
+    theme: 'castle',
+    learnSteps: [
+      { text: "來到幾何城堡，我們要研究「扇形」。", highlight: "intro" },
+      { text: "扇形圓圓的那段曲線，我們叫它「弧長」。", highlight: "term" },
+      { text: "弧長怎麼算？其實就是「圓周長 × 幾分之幾圓」。", highlight: "formula" },
+      { text: "如果題目給角度，例如 90 度，那就是 90/360 = 1/4 圓。", highlight: "fraction" },
+      { text: "範例：直徑 20 的 1/4 圓扇形，弧長 = (20 × 3.14) × 1/4 = 15.7。", highlight: "example" }
+    ],
+    problems: [
+      {
+        q: '半徑 10 公分，圓心角 180 度的扇形，弧長是多少？',
+        options: ['31.4', '15.7', '62.8', '10'],
+        ans: '31.4',
+        hint: '180 度是半圓 (1/2 圓)。先算整個圓周長，再除以 2。',
+        explanation: '1. 直徑：10 × 2 = 20\n2. 圓周長：20 × 3.14 = 62.8\n3. 弧長：62.8 × (180/360) = 31.4 (公分)'
+      },
+      {
+        q: '圓心角 90 度的扇形，是幾分之幾圓？',
+        options: ['1/2', '1/3', '1/4', '1/6'],
+        ans: '1/4',
+        hint: '90 ÷ 360 = ?',
+        explanation: '90/360，約分後等於 1/4。'
+      },
+      {
+        q: '直徑 20 公分，1/4 圓的扇形，弧長是多少？',
+        options: ['15.7', '31.4', '78.5', '5'],
+        ans: '15.7',
+        hint: '圓周長 × 1/4',
+        explanation: '1. 圓周長：20 × 3.14 = 62.8\n2. 弧長：62.8 × 1/4 = 15.7 (公分)'
+      }
+    ]
+  },
+  {
+    id: 'space',
+    title: '第四關：扇形周長大挑戰',
+    desc: '小心！扇形周長不只有弧長喔！',
+    theme: 'space',
+    learnSteps: [
+      { text: "在太空要特別小心陷阱！題目問「扇形周長」時...", highlight: "intro" },
+      { text: "周長 = 繞一圈的長度。", highlight: "concept" },
+      { text: "所以除了「弧長」，還要加上兩邊的直線，也就是「兩條半徑」！", highlight: "warning" },
+      { text: "公式：扇形周長 = 弧長 + 半徑 × 2", highlight: "formula" },
+      { text: "記得喔，缺一不可！", highlight: "final" }
+    ],
+    problems: [
+      {
+        q: '半徑 10 公分的半圓形 (1/2圓)，它的周長是多少？',
+        options: ['31.4', '51.4', '41.4', '62.8'],
+        ans: '51.4',
+        hint: '周長 = 弧長 + 直徑 (兩條半徑)',
+        explanation: '1. 直徑 = 20\n2. 弧長 = 20 × 3.14 ÷ 2 = 31.4\n3. 周長 = 31.4 + 20 = 51.4 (公分)'
+      },
+      {
+        q: '一個 1/4 圓的扇形，半徑 4 公分，周長是多少？',
+        options: ['6.28', '10.28', '14.28', '12.56'],
+        ans: '14.28',
+        hint: '別忘了加上兩條半徑！',
+        explanation: '1. 直徑 = 8\n2. 弧長 = 8 × 3.14 × 1/4 = 6.28\n3. 周長 = 6.28 + 4 + 4 = 14.28 (公分)'
+      }
+    ]
+  },
+  {
+    id: 'magic',
+    title: '第五關：終極應用',
+    desc: '複合圖形的周長計算！',
+    theme: 'magic',
+    learnSteps: [
+      { text: "最後是魔法學院的考驗，這裡的圖形很特別。", highlight: "intro" },
+      { text: "遇到形狀奇怪的跑道或複合圖形，先把它「拆解」。", highlight: "strategy" },
+      { text: "通常是：直線部分 + 曲線部分。", highlight: "concept" },
+      { text: "例如操場跑道：就是「兩條直線長」 + 「一個完整的圓周長」。", highlight: "example" },
+      { text: "把圖形看懂，計算就很簡單囉！", highlight: "cheer" }
+    ],
+    problems: [
+      {
+        q: '一個操場跑道由一個長方形和兩個半圓組成，如果要算跑一圈的長度，需要加什麼？',
+        options: ['兩個長邊 + 一個圓周長', '兩個寬邊 + 兩個圓周長', '長方形周長 + 圓周長', '只有兩個長邊'],
+        ans: '兩個長邊 + 一個圓周長',
+        hint: '把兩個半圓拼起來就是一個圓。',
+        explanation: '跑道的一圈通常包含兩條直線跑道 (長方形的長邊) 和兩個彎道 (合起來是一個圓周)。內部寬度不需要跑。'
+      },
+      {
+        q: '觀察圖形：四個 1/4 圓的弧長合起來，等於什麼？(假設半徑相同)',
+        options: ['1 個圓周長', '2 個圓周長', '半個圓周長', '4 個圓周長'],
+        ans: '1 個圓周長',
+        hint: '1/4 + 1/4 + 1/4 + 1/4 = 1',
+        explanation: '四個 1/4 圓合起來剛好是一個完整的圓，所以弧長總和等於一個圓周長。'
+      }
+    ]
+  }
+];
+
+// --- 學習內容 (Review Content) ---
+const LEARNING_CONTENT = [
+  {
+    title: '認識圓周率 (π)',
+    content: (
+      <div className="space-y-4">
+        <div className="flex justify-center">
+          <div className="relative w-32 h-32 border-4 border-blue-500 rounded-full flex items-center justify-center">
+            <div className="absolute w-full h-0.5 bg-red-500 top-1/2 transform -translate-y-1/2"></div>
+            <span className="text-red-500 font-bold bg-white px-1 relative -top-4">直徑</span>
+            <span className="absolute -right-16 text-blue-600 font-bold">圓周長</span>
+          </div>
+        </div>
+        <p>不管圓是大是小，<strong>圓周長 ÷ 直徑</strong> 永遠都大約等於 <strong>3.14</strong>。</p>
+        <p>這個神祕的數字我們叫它「圓周率」。</p>
+        <div className="bg-yellow-100 p-4 rounded-lg text-center font-bold text-xl text-yellow-800">
+          圓周長 = 直徑 × 3.14
+        </div>
+      </div>
+    )
+  },
+  {
+    title: '扇形的弧長',
+    content: (
+      <div className="space-y-4">
+        <div className="flex justify-center">
+          <div className="w-32 h-32 bg-green-200 rounded-full relative overflow-hidden">
+            <div className="absolute w-32 h-32 bg-green-500 origin-bottom-left transform rotate-90 bottom-0 left-0"></div>
+          </div>
+        </div>
+        <p>扇形是圓的一部分。扇形圓弧部分的長度叫作<strong>「弧長」</strong>。</p>
+        <p>計算方法：先算出整個圓周長，再看扇形佔了圓的幾分之幾。</p>
+        <div className="bg-green-100 p-4 rounded-lg text-sm text-green-800 space-y-2">
+          <p>步驟 1：直徑 × 3.14 (算圓周長)</p>
+          <p>步驟 2：圓周長 × (圓心角 ÷ 360)</p>
+        </div>
+      </div>
+    )
+  },
+  {
+    title: '扇形的周長',
+    content: (
+      <div className="space-y-4">
+        <p className="text-red-500 font-bold">這題最容易錯！</p>
+        <p>題目問「扇形的周長」時，不只要算弧長，還要加上<strong>兩條半徑</strong>！</p>
+        <div className="flex justify-center items-center space-x-2">
+          <div className="w-16 h-16 border-t-4 border-r-4 border-blue-500 rounded-tr-full"></div>
+          <span className="text-2xl">+</span>
+          <div className="w-16 h-0.5 bg-red-500 relative"><span className="absolute -top-6">半徑</span></div>
+          <span className="text-2xl">+</span>
+          <div className="w-16 h-0.5 bg-red-500 relative"><span className="absolute -top-6">半徑</span></div>
+        </div>
+        <div className="bg-purple-100 p-4 rounded-lg text-center font-bold text-purple-800">
+          扇形周長 = 弧長 + 半徑 × 2
+        </div>
+      </div>
+    )
+  }
+];
+
+// --- 灑花特效元件 ---
+const Confetti = () => {
+  const [particles, setParticles] = useState([]);
+
+  useEffect(() => {
+    // 產生 50 片彩帶
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    const newParticles = Array.from({ length: 50 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * 100, // 0-100%
+      y: -20 - Math.random() * 50, // Start above screen
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 5 + Math.random() * 10,
+      rotation: Math.random() * 360,
+      speed: 2 + Math.random() * 3,
+      delay: Math.random() * 2,
+    }));
+    setParticles(newParticles);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute animate-fall"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            backgroundColor: p.color,
+            transform: `rotate(${p.rotation}deg)`,
+            animationName: 'fall',
+            animationDuration: `${p.speed}s`,
+            animationDelay: `${p.delay}s`,
+            animationIterationCount: 'infinite',
+            animationTimingFunction: 'linear'
+          }}
+        />
+      ))}
+      <style>{`
         @keyframes fall {
-            0% { top: -10%; transform: rotate(0deg); opacity: 1; }
-            100% { top: 110%; transform: rotate(360deg); opacity: 0; }
+          0% { top: -10%; transform: rotate(0deg); opacity: 1; }
+          100% { top: 110%; transform: rotate(360deg); opacity: 0; }
         }
-        /* Float Animation */
         @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(5deg); }
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
         }
+      `}</style>
+    </div>
+  );
+};
+
+// --- 音效管理器 (Web Audio API) ---
+const useSoundEffects = () => {
+  const playTone = useCallback((freq, type, duration, delay = 0) => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+    
+    gain.gain.setValueAtTime(0.1, ctx.currentTime + delay);
+    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + delay + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + duration);
+  }, []);
+
+  const playCorrect = useCallback(() => {
+    playTone(880, 'sine', 0.1); // Ding
+    playTone(1760, 'sine', 0.3, 0.1); // Dong
+  }, [playTone]);
+
+  const playWrong = useCallback(() => {
+    playTone(150, 'sawtooth', 0.3);
+  }, [playTone]);
+
+  const playFanfare = useCallback(() => {
+    // C Major Arpeggio: C E G C
+    const now = 0;
+    playTone(523.25, 'triangle', 0.2, now);       // C5
+    playTone(659.25, 'triangle', 0.2, now + 0.15); // E5
+    playTone(783.99, 'triangle', 0.2, now + 0.3);  // G5
+    playTone(1046.50, 'square', 0.6, now + 0.45);  // C6
+  }, [playTone]);
+
+  return { playCorrect, playWrong, playFanfare };
+};
+
+// --- 元件: 錄音機 (內部) ---
+const AudioRecorder = () => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const url = URL.createObjectURL(audioBlob);
+        setAudioUrl(url);
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setAudioUrl(null); // Clear previous recording
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      alert("無法存取麥克風，請確認瀏覽器權限設定。");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      // Stop all tracks to release microphone
+      if (mediaRecorderRef.current.stream) {
+          mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+    }
+  };
+
+  return (
+    <div className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 mt-6 flex flex-col items-center">
+        <h4 className="text-slate-500 font-bold mb-3 flex items-center">
+            <Mic className="w-4 h-4 mr-1" /> 我的口說筆記
+        </h4>
         
-        body {
-            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
-            user-select: none; /* 防止選取文字干擾遊戲體驗 */
-        }
+        <div className="flex items-center space-x-4">
+            {!isRecording ? (
+                <button 
+                    onClick={startRecording}
+                    className="flex items-center bg-red-500 text-white px-4 py-2 rounded-full font-bold hover:bg-red-600 transition shadow-sm"
+                >
+                    <Mic className="w-5 h-5 mr-2" /> 開始錄音
+                </button>
+            ) : (
+                <button 
+                    onClick={stopRecording}
+                    className="flex items-center bg-slate-700 text-white px-4 py-2 rounded-full font-bold hover:bg-slate-800 transition shadow-sm animate-pulse"
+                >
+                    <Square className="w-5 h-5 mr-2 fill-current" /> 停止錄音
+                </button>
+            )}
 
-        /* Icon Helper Class */
-        .icon { display: inline-flex; align-items: center; justify-content: center; }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback } = React;
-
-        // --- Icon Components Wrapper (Mapping Lucide to FontAwesome for single file ease) ---
-        const IconWrapper = ({ icon, className, size, style }) => {
-            const fontSize = size ? (typeof size === 'number' ? `${size}px` : size) : undefined;
-            return <i className={`fa-solid ${icon} ${className || ''}`} style={{ fontSize, ...style }}></i>;
-        };
-
-        const Play = (p) => <IconWrapper icon="fa-play" {...p} />;
-        const BookOpen = (p) => <IconWrapper icon="fa-book-open" {...p} />;
-        const Calculator = (p) => <IconWrapper icon="fa-calculator" {...p} />;
-        const Award = (p) => <IconWrapper icon="fa-award" {...p} />;
-        const Heart = (p) => <IconWrapper icon="fa-heart" {...p} />;
-        const Star = (p) => <IconWrapper icon="fa-star" {...p} />;
-        const RefreshCw = (p) => <IconWrapper icon="fa-rotate" {...p} />;
-        const ChevronRight = (p) => <IconWrapper icon="fa-chevron-right" {...p} />;
-        const HelpCircle = (p) => <IconWrapper icon="fa-circle-question" {...p} />;
-        const CheckCircle = (p) => <IconWrapper icon="fa-circle-check" {...p} />;
-        const XCircle = (p) => <IconWrapper icon="fa-circle-xmark" {...p} />;
-        const Trophy = (p) => <IconWrapper icon="fa-trophy" {...p} />;
-        const Map = (p) => <IconWrapper icon="fa-map" {...p} />;
-        const Trees = (p) => <IconWrapper icon="fa-tree" {...p} />;
-        const Anchor = (p) => <IconWrapper icon="fa-anchor" {...p} />;
-        const Castle = (p) => <IconWrapper icon="fa-chess-rook" {...p} />;
-        const Rocket = (p) => <IconWrapper icon="fa-rocket" {...p} />;
-        const Wand2 = (p) => <IconWrapper icon="fa-wand-magic-sparkles" {...p} />;
-        const Home = (p) => <IconWrapper icon="fa-house" {...p} />;
-        const ArrowRight = (p) => <IconWrapper icon="fa-arrow-right" {...p} />;
-        const MousePointer2 = (p) => <IconWrapper icon="fa-arrow-pointer" {...p} />;
-        const GraduationCap = (p) => <IconWrapper icon="fa-graduation-cap" {...p} />;
-        const Mic = (p) => <IconWrapper icon="fa-microphone" {...p} />;
-        const Square = (p) => <IconWrapper icon="fa-square" {...p} />;
-        const Volume2 = (p) => <IconWrapper icon="fa-volume-high" {...p} />;
-        const RotateCcw = (p) => <IconWrapper icon="fa-rotate-left" {...p} />;
-        const Music = (p) => <IconWrapper icon="fa-music" {...p} />;
-        const PieChart = (p) => <IconWrapper icon="fa-chart-pie" {...p} />;
-        const Ruler = (p) => <IconWrapper icon="fa-ruler" {...p} />;
-        const Scissors = (p) => <IconWrapper icon="fa-scissors" {...p} />;
-        const Shapes = (p) => <IconWrapper icon="fa-shapes" {...p} />;
-        const Circle = (p) => <IconWrapper icon="fa-circle" {...p} />;
-
-        // --- 資料與題庫 ---
-
-        const THEMES = {
-            forest: { name: '迷霧森林', color: 'bg-green-100', accent: 'text-green-600', button: 'bg-green-500 hover:bg-green-600', icon: Trees },
-            ocean: { name: '深藍海洋', color: 'bg-blue-100', accent: 'text-blue-600', button: 'bg-blue-500 hover:bg-blue-600', icon: Anchor },
-            castle: { name: '幾何城堡', color: 'bg-slate-100', accent: 'text-slate-600', button: 'bg-slate-500 hover:bg-slate-600', icon: Castle },
-            space: { name: '無重力太空', color: 'bg-indigo-100', accent: 'text-indigo-600', button: 'bg-indigo-500 hover:bg-indigo-600', icon: Rocket },
-            magic: { name: '魔法學院', color: 'bg-purple-100', accent: 'text-purple-600', button: 'bg-purple-500 hover:bg-purple-600', icon: Wand2 },
-        };
-
-        const LEVELS = [
-            {
-                id: 'forest',
-                title: '第一關：認識圓周率',
-                desc: '找出圓周長與直徑的祕密關係！',
-                theme: 'forest',
-                learnSteps: [
-                    { text: "歡迎來到迷霧森林！我們要先認識圓的祕密。", highlight: "intro" },
-                    { text: "不管圓是大是小，只要用「圓周長 ÷ 直徑」，答案都大約是 3.14。", highlight: "concept" },
-                    { text: "這個 3.14 我們叫它「圓周率」。", highlight: "term" },
-                    { text: "所以公式是：圓周長 = 直徑 × 3.14", highlight: "formula" },
-                    { text: "範例：直徑 10 公分的圓，周長是 10 × 3.14 = 31.4 公分。", highlight: "example" }
-                ],
-                problems: [
-                    {
-                        q: '直徑 10 公分的圓，圓周長大約是多少公分？(圓周率以 3.14 計算)',
-                        options: ['31.4', '314', '15.7', '62.8'],
-                        ans: '31.4',
-                        hint: '圓周長 = 直徑 × 3.14',
-                        explanation: '圓周長公式為：直徑 × 3.14。\n10 × 3.14 = 31.4 (公分)'
-                    },
-                    {
-                        q: '一個圓的直徑變成原來的 2 倍，圓周長會變成原來的幾倍？',
-                        options: ['2 倍', '3.14 倍', '4 倍', '不變'],
-                        ans: '2 倍',
-                        hint: '圓周長和直徑是成正比的喔！',
-                        explanation: '圓周長 = 直徑 × 3.14。如果直徑 × 2，圓周長也會跟著 × 2。'
-                    },
-                    {
-                        q: '半徑 5 公分的圓，圓周長是多少？',
-                        options: ['15.7', '31.4', '10', '25'],
-                        ans: '31.4',
-                        hint: '先求出直徑，直徑是半徑的 2 倍。',
-                        explanation: '1. 先算直徑：5 × 2 = 10 (公分)\n2. 再算圓周長：10 × 3.14 = 31.4 (公分)'
-                    }
-                ]
-            },
-            {
-                id: 'ocean',
-                title: '第二關：尋找直徑',
-                desc: '已知圓周長，你能推算出直徑嗎？',
-                theme: 'ocean',
-                learnSteps: [
-                    { text: "在深藍海洋中，我們要學會反向思考。", highlight: "intro" },
-                    { text: "既然「圓周長 = 直徑 × 3.14」...", highlight: "recall" },
-                    { text: "那如果知道圓周長，要怎麼求直徑呢？", highlight: "question" },
-                    { text: "沒錯！就是「直徑 = 圓周長 ÷ 3.14」。", highlight: "formula" },
-                    { text: "範例：圓周長 62.8，直徑就是 62.8 ÷ 3.14 = 20。", highlight: "example" }
-                ],
-                problems: [
-                    {
-                        q: '一個圓的圓周長是 62.8 公分，請問直徑是多少公分？',
-                        options: ['10', '20', '30', '40'],
-                        ans: '20',
-                        hint: '直徑 = 圓周長 ÷ 3.14',
-                        explanation: '利用逆運算：62.8 ÷ 3.14 = 20 (公分)'
-                    },
-                    {
-                        q: '圓周長 18.84 公尺的圓形花圃，半徑是多少公尺？',
-                        options: ['3', '6', '9', '12'],
-                        ans: '3',
-                        hint: '先算出直徑，再除以 2 變成半徑。',
-                        explanation: '1. 直徑：18.84 ÷ 3.14 = 6 (公尺)\n2. 半徑：6 ÷ 2 = 3 (公尺)'
-                    },
-                    {
-                        q: '測距輪滾一圈是 157 公分，這個輪子的直徑約是多少？',
-                        options: ['25', '50', '100', '157'],
-                        ans: '50',
-                        hint: '滾一圈的長度就是圓周長。',
-                        explanation: '157 ÷ 3.14 = 50 (公分)'
-                    }
-                ]
-            },
-            {
-                id: 'castle',
-                title: '第三關：扇形的祕密',
-                desc: '計算扇形的弧長與幾分之幾圓。',
-                theme: 'castle',
-                learnSteps: [
-                    { text: "來到幾何城堡，我們要研究「扇形」。", highlight: "intro" },
-                    { text: "扇形圓圓的那段曲線，我們叫它「弧長」。", highlight: "term" },
-                    { text: "弧長怎麼算？其實就是「圓周長 × 幾分之幾圓」。", highlight: "formula" },
-                    { text: "如果題目給角度，例如 90 度，那就是 90/360 = 1/4 圓。", highlight: "fraction" },
-                    { text: "範例：直徑 20 的 1/4 圓扇形，弧長 = (20 × 3.14) × 1/4 = 15.7。", highlight: "example" }
-                ],
-                problems: [
-                    {
-                        q: '半徑 10 公分，圓心角 180 度的扇形，弧長是多少？',
-                        options: ['31.4', '15.7', '62.8', '10'],
-                        ans: '31.4',
-                        hint: '180 度是半圓 (1/2 圓)。先算整個圓周長，再除以 2。',
-                        explanation: '1. 直徑：10 × 2 = 20\n2. 圓周長：20 × 3.14 = 62.8\n3. 弧長：62.8 × (180/360) = 31.4 (公分)'
-                    },
-                    {
-                        q: '圓心角 90 度的扇形，是幾分之幾圓？',
-                        options: ['1/2', '1/3', '1/4', '1/6'],
-                        ans: '1/4',
-                        hint: '90 ÷ 360 = ?',
-                        explanation: '90/360，約分後等於 1/4。'
-                    },
-                    {
-                        q: '直徑 20 公分，1/4 圓的扇形，弧長是多少？',
-                        options: ['15.7', '31.4', '78.5', '5'],
-                        ans: '15.7',
-                        hint: '圓周長 × 1/4',
-                        explanation: '1. 圓周長：20 × 3.14 = 62.8\n2. 弧長：62.8 × 1/4 = 15.7 (公分)'
-                    }
-                ]
-            },
-            {
-                id: 'space',
-                title: '第四關：扇形周長大挑戰',
-                desc: '小心！扇形周長不只有弧長喔！',
-                theme: 'space',
-                learnSteps: [
-                    { text: "在太空要特別小心陷阱！題目問「扇形周長」時...", highlight: "intro" },
-                    { text: "周長 = 繞一圈的長度。", highlight: "concept" },
-                    { text: "所以除了「弧長」，還要加上兩邊的直線，也就是「兩條半徑」！", highlight: "warning" },
-                    { text: "公式：扇形周長 = 弧長 + 半徑 × 2", highlight: "formula" },
-                    { text: "記得喔，缺一不可！", highlight: "final" }
-                ],
-                problems: [
-                    {
-                        q: '半徑 10 公分的半圓形 (1/2圓)，它的周長是多少？',
-                        options: ['31.4', '51.4', '41.4', '62.8'],
-                        ans: '51.4',
-                        hint: '周長 = 弧長 + 直徑 (兩條半徑)',
-                        explanation: '1. 直徑 = 20\n2. 弧長 = 20 × 3.14 ÷ 2 = 31.4\n3. 周長 = 31.4 + 20 = 51.4 (公分)'
-                    },
-                    {
-                        q: '一個 1/4 圓的扇形，半徑 4 公分，周長是多少？',
-                        options: ['6.28', '10.28', '14.28', '12.56'],
-                        ans: '14.28',
-                        hint: '別忘了加上兩條半徑！',
-                        explanation: '1. 直徑 = 8\n2. 弧長 = 8 × 3.14 × 1/4 = 6.28\n3. 周長 = 6.28 + 4 + 4 = 14.28 (公分)'
-                    }
-                ]
-            },
-            {
-                id: 'magic',
-                title: '第五關：終極應用',
-                desc: '複合圖形的周長計算！',
-                theme: 'magic',
-                learnSteps: [
-                    { text: "最後是魔法學院的考驗，這裡的圖形很特別。", highlight: "intro" },
-                    { text: "遇到形狀奇怪的跑道或複合圖形，先把它「拆解」。", highlight: "strategy" },
-                    { text: "通常是：直線部分 + 曲線部分。", highlight: "concept" },
-                    { text: "例如操場跑道：就是「兩條直線長」 + 「一個完整的圓周長」。", highlight: "example" },
-                    { text: "把圖形看懂，計算就很簡單囉！", highlight: "cheer" }
-                ],
-                problems: [
-                    {
-                        q: '一個操場跑道由一個長方形和兩個半圓組成，如果要算跑一圈的長度，需要加什麼？',
-                        options: ['兩個長邊 + 一個圓周長', '兩個寬邊 +兩個圓周長', '長方形周長 + 圓周長', '只有兩個長邊'],
-                        ans: '兩個長邊 + 一個圓周長',
-                        hint: '把兩個半圓拼起來就是一個圓。',
-                        explanation: '跑道的一圈通常包含兩條直線跑道 (長方形的長邊) 和兩個彎道 (合起來是一個圓周)。內部寬度不需要跑。'
-                    },
-                    {
-                        q: '觀察圖形：四個 1/4 圓的弧長合起來，等於什麼？(假設半徑相同)',
-                        options: ['1 個圓周長', '2 個圓周長', '半個圓周長', '4 個圓周長'],
-                        ans: '1 個圓周長',
-                        hint: '1/4 + 1/4 + 1/4 + 1/4 = 1',
-                        explanation: '四個 1/4 圓合起來剛好是一個完整的圓，所以弧長總和等於一個圓周長。'
-                    }
-                ]
-            }
-        ];
-
-        const LEARNING_CONTENT = [
-            {
-                title: '認識圓周率 (π)',
-                content: (
-                    <div className="space-y-4">
-                        <div className="flex justify-center">
-                            <div className="relative w-32 h-32 border-4 border-blue-500 rounded-full flex items-center justify-center">
-                                <div className="absolute w-full h-0.5 bg-red-500 top-1/2 transform -translate-y-1/2"></div>
-                                <span className="text-red-500 font-bold bg-white px-1 relative -top-4">直徑</span>
-                                <span className="absolute -right-16 text-blue-600 font-bold">圓周長</span>
-                            </div>
-                        </div>
-                        <p>不管圓是大是小，<strong>圓周長 ÷ 直徑</strong> 永遠都大約等於 <strong>3.14</strong>。</p>
-                        <p>這個神祕的數字我們叫它「圓周率」。</p>
-                        <div className="bg-yellow-100 p-4 rounded-lg text-center font-bold text-xl text-yellow-800">
-                            圓周長 = 直徑 × 3.14
-                        </div>
-                    </div>
-                )
-            },
-            {
-                title: '扇形的弧長',
-                content: (
-                    <div className="space-y-4">
-                        <div className="flex justify-center">
-                            <div className="w-32 h-32 bg-green-200 rounded-full relative overflow-hidden">
-                                <div className="absolute w-32 h-32 bg-green-500 origin-bottom-left transform rotate-90 bottom-0 left-0"></div>
-                            </div>
-                        </div>
-                        <p>扇形是圓的一部分。扇形圓弧部分的長度叫作<strong>「弧長」</strong>。</p>
-                        <p>計算方法：先算出整個圓周長，再看扇形佔了圓的幾分之幾。</p>
-                        <div className="bg-green-100 p-4 rounded-lg text-sm text-green-800 space-y-2">
-                            <p>步驟 1：直徑 × 3.14 (算圓周長)</p>
-                            <p>步驟 2：圓周長 × (圓心角 ÷ 360)</p>
-                        </div>
-                    </div>
-                )
-            },
-            {
-                title: '扇形的周長',
-                content: (
-                    <div className="space-y-4">
-                        <p className="text-red-500 font-bold">這題最容易錯！</p>
-                        <p>題目問「扇形的周長」時，不只要算弧長，還要加上<strong>兩條半徑</strong>！</p>
-                        <div className="flex justify-center items-center space-x-2">
-                            <div className="w-16 h-16 border-t-4 border-r-4 border-blue-500 rounded-tr-full"></div>
-                            <span className="text-2xl">+</span>
-                            <div className="w-16 h-0.5 bg-red-500 relative"><span className="absolute -top-6">半徑</span></div>
-                            <span className="text-2xl">+</span>
-                            <div className="w-16 h-0.5 bg-red-500 relative"><span className="absolute -top-6">半徑</span></div>
-                        </div>
-                        <div className="bg-purple-100 p-4 rounded-lg text-center font-bold text-purple-800">
-                            扇形周長 = 弧長 + 半徑 × 2
-                        </div>
-                    </div>
-                )
-            }
-        ];
-
-        // --- 音效系統 (Web Audio API) ---
-        const useSoundEffects = () => {
-            const playTone = useCallback((freq, type, duration, delay = 0) => {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                const ctx = new AudioContext();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
-                
-                gain.gain.setValueAtTime(0.1, ctx.currentTime + delay);
-                gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + delay + duration);
-
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-
-                osc.start(ctx.currentTime + delay);
-                osc.stop(ctx.currentTime + delay + duration);
-            }, []);
-
-            const playCorrect = useCallback(() => {
-                playTone(880, 'sine', 0.1); // Ding
-                playTone(1760, 'sine', 0.3, 0.1); // Dong
-            }, [playTone]);
-
-            const playWrong = useCallback(() => {
-                playTone(150, 'sawtooth', 0.3);
-            }, [playTone]);
-
-            const playFanfare = useCallback(() => {
-                const now = 0;
-                playTone(523.25, 'triangle', 0.2, now);       // C5
-                playTone(659.25, 'triangle', 0.2, now + 0.15); // E5
-                playTone(783.99, 'triangle', 0.2, now + 0.3);  // G5
-                playTone(1046.50, 'square', 0.6, now + 0.45);  // C6
-            }, [playTone]);
-
-            return { playCorrect, playWrong, playFanfare };
-        };
-
-        // --- 灑花特效 ---
-        const Confetti = () => {
-            const [particles, setParticles] = useState([]);
-
-            useEffect(() => {
-                const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
-                const newParticles = Array.from({ length: 50 }).map((_, i) => ({
-                    id: i,
-                    x: Math.random() * 100, 
-                    y: -20 - Math.random() * 50,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    size: 5 + Math.random() * 10,
-                    rotation: Math.random() * 360,
-                    speed: 2 + Math.random() * 3,
-                    delay: Math.random() * 2,
-                }));
-                setParticles(newParticles);
-            }, []);
-
-            return (
-                <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-                    {particles.map((p) => (
-                        <div
-                            key={p.id}
-                            style={{
-                                position: 'absolute',
-                                left: `${p.x}%`,
-                                top: `${p.y}%`,
-                                width: `${p.size}px`,
-                                height: `${p.size}px`,
-                                backgroundColor: p.color,
-                                transform: `rotate(${p.rotation}deg)`,
-                                animationName: 'fall',
-                                animationDuration: `${p.speed}s`,
-                                animationDelay: `${p.delay}s`,
-                                animationIterationCount: 'infinite',
-                                animationTimingFunction: 'linear'
-                            }}
-                        />
-                    ))}
+            {audioUrl && !isRecording && (
+                <div className="flex items-center space-x-2 animate-fade-in">
+                    <audio src={audioUrl} controls className="h-10 w-48" />
+                    <button 
+                        onClick={() => setAudioUrl(null)}
+                        className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 tooltip"
+                        title="重新錄音"
+                    >
+                        <RotateCcw className="w-5 h-5" />
+                    </button>
                 </div>
-            );
-        };
+            )}
+        </div>
+        {isRecording && <p className="text-red-500 text-sm mt-2 font-medium animate-pulse">正在錄音中...請說出你的重點！</p>}
+        {!isRecording && !audioUrl && <p className="text-slate-400 text-xs mt-2">試著用自己的話說說看，錄下來聽聽看！</p>}
+    </div>
+  );
+};
 
-        // --- 錄音機 ---
-        const AudioRecorder = () => {
-            const [isRecording, setIsRecording] = useState(false);
-            const [audioUrl, setAudioUrl] = useState(null);
-            const mediaRecorderRef = useRef(null);
-            const audioChunksRef = useRef([]);
+// --- 元件: 主選單 ---
+const MainMenu = ({ onSelectMode }) => (
+  <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-4 relative overflow-hidden">
+    {/* 裝飾背景 */}
+    <div className="absolute top-10 left-10 text-white/60 animate-bounce delay-1000 drop-shadow-lg font-bold text-8xl md:text-9xl pointer-events-none">π</div>
+    <div className="absolute bottom-10 right-10 text-white/60 animate-pulse drop-shadow-lg font-bold text-8xl md:text-9xl pointer-events-none">3.14</div>
+    
+    <div className="absolute top-20 right-20 text-white/50 drop-shadow-xl pointer-events-none" style={{ animation: 'float 6s ease-in-out infinite' }}>
+        <PieChart size={180} />
+    </div>
 
-            const startRecording = async () => {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorderRef.current = new MediaRecorder(stream);
-                    audioChunksRef.current = [];
+    <div className="absolute bottom-32 left-20 text-white/50 flex flex-col items-center drop-shadow-xl pointer-events-none" style={{ animation: 'float 7s ease-in-out infinite reverse' }}>
+        <Circle size={140} />
+        <Ruler size={120} className="mt-2" />
+    </div>
 
-                    mediaRecorderRef.current.ondataavailable = (event) => {
-                        if (event.data.size > 0) {
-                            audioChunksRef.current.push(event.data);
+    <div className="absolute top-1/3 left-10 text-white/40 rotate-45 drop-shadow-lg pointer-events-none" style={{ animation: 'float 5s ease-in-out infinite 1s' }}>
+        <Scissors size={100} />
+    </div>
+    <div className="absolute bottom-1/3 right-10 text-white/40 -rotate-12 drop-shadow-lg pointer-events-none" style={{ animation: 'float 8s ease-in-out infinite' }}>
+        <Shapes size={120} />
+    </div>
+
+    <div className="bg-white/95 backdrop-blur-sm p-8 md:p-12 rounded-3xl shadow-2xl max-w-lg w-full text-center space-y-8 border-8 border-yellow-400 relative z-10 transform transition-all hover:scale-[1.01]">
+        <div className="relative">
+            <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-yellow-400 p-4 rounded-full shadow-lg border-4 border-white">
+                <Trophy size={48} className="text-white" />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-black text-indigo-600 mb-2 tracking-wider mt-6 drop-shadow-sm">
+                數學冒險王
+            </h1>
+            <div className="inline-block bg-indigo-100 text-indigo-600 px-4 py-1 rounded-full text-sm font-bold mb-2">
+                L7. 圓周長與扇形周長
+            </div>
+            <p className="text-gray-500 text-lg">準備好展開你的數學冒險了嗎？</p>
+        </div>
+        
+        <div className="grid gap-6">
+            <button 
+                onClick={() => onSelectMode('review')} 
+                className="group relative flex items-center p-5 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-2xl shadow-lg transition-all transform hover:-translate-y-1 hover:shadow-2xl border-b-4 border-orange-700 active:border-b-0 active:translate-y-1"
+            >
+                <div className="bg-white/20 p-3 rounded-xl mr-5 group-hover:rotate-12 transition-transform">
+                    <BookOpen size={32} />
+                </div>
+                <div className="text-left flex-1">
+                    <div className="font-black text-xl mb-1">重點祕笈</div>
+                    <div className="text-sm text-orange-100 font-medium">複習圓周率與公式</div>
+                </div>
+                <ChevronRight size={24} className="opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+            </button>
+            
+            <button 
+                onClick={() => onSelectMode('learn')} 
+                className="group relative flex items-center p-5 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-2xl shadow-lg transition-all transform hover:-translate-y-1 hover:shadow-2xl border-b-4 border-green-700 active:border-b-0 active:translate-y-1"
+            >
+                <div className="bg-white/20 p-3 rounded-xl mr-5 group-hover:rotate-12 transition-transform">
+                    <GraduationCap size={32} />
+                </div>
+                <div className="text-left flex-1">
+                    <div className="font-black text-xl mb-1">互動教學</div>
+                    <div className="text-sm text-green-100 font-medium">跟著步驟一步步學</div>
+                </div>
+                <ChevronRight size={24} className="opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+            </button>
+
+            <button 
+                onClick={() => onSelectMode('game')} 
+                className="group relative flex items-center p-5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-2xl shadow-lg transition-all transform hover:-translate-y-1 hover:shadow-2xl border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1"
+            >
+                <div className="bg-white/20 p-3 rounded-xl mr-5 group-hover:rotate-12 transition-transform">
+                    <Map size={32} />
+                </div>
+                <div className="text-left flex-1">
+                    <div className="font-black text-xl mb-1">冒險闖關</div>
+                    <div className="text-sm text-indigo-100 font-medium">挑戰五大關卡贏證書</div>
+                </div>
+                <ChevronRight size={24} className="opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                
+                <div className="absolute -top-3 -right-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full animate-bounce shadow-md">
+                    HOT!
+                </div>
+            </button>
+        </div>
+        
+        <div className="text-gray-400 text-sm font-medium pt-4 border-t border-gray-100">
+            適合國小六年級 • 數學單元
+        </div>
+    </div>
+  </div>
+);
+
+// --- 元件: 重點複習模式 ---
+const ReviewMode = ({ onBack }) => {
+  const [page, setPage] = useState(0);
+
+  return (
+    <div className="min-h-screen bg-orange-50 p-4 flex flex-col items-center justify-center">
+      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl overflow-hidden min-h-[600px] flex flex-col relative">
+        <div className="bg-orange-400 p-4 text-white flex items-center justify-between">
+          <button onClick={onBack} className="p-2 hover:bg-white/20 rounded-full"><Home size={24} /></button>
+          <h2 className="text-2xl font-bold">重點祕笈</h2>
+          <div className="w-8"></div>
+        </div>
+
+        <div className="flex-1 p-8 flex flex-col items-center justify-center text-center">
+          <h3 className="text-3xl font-bold text-gray-800 mb-8">{LEARNING_CONTENT[page].title}</h3>
+          <div className="text-xl text-gray-600 leading-relaxed w-full">
+            {LEARNING_CONTENT[page].content}
+          </div>
+        </div>
+
+        <div className="p-6 bg-gray-50 flex justify-between items-center border-t">
+          <button 
+            onClick={() => setPage(Math.max(0, page - 1))}
+            disabled={page === 0}
+            className={`flex items-center px-4 py-2 rounded-lg font-bold ${page === 0 ? 'bg-gray-200 text-gray-400' : 'bg-orange-100 text-orange-600 hover:bg-orange-200'}`}
+          >
+            上一頁
+          </button>
+          <span className="font-bold text-gray-400">{page + 1} / {LEARNING_CONTENT.length}</span>
+          <button 
+            onClick={() => setPage(Math.min(LEARNING_CONTENT.length - 1, page + 1))}
+            disabled={page === LEARNING_CONTENT.length - 1}
+            className={`flex items-center px-4 py-2 rounded-lg font-bold ${page === LEARNING_CONTENT.length - 1 ? 'bg-gray-200 text-gray-400' : 'bg-orange-100 text-orange-600 hover:bg-orange-200'}`}
+          >
+            下一頁
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- 元件: 互動學習 (選擇單元 -> 該單元教學) ---
+const LearnMode = ({ onBack }) => {
+  const [selectedLevelId, setSelectedLevelId] = useState(null);
+  const [step, setStep] = useState(0);
+
+  const selectedLevel = LEVELS.find(l => l.id === selectedLevelId);
+
+  // 如果還沒選單元，顯示單元選擇清單
+  if (!selectedLevelId) {
+    return (
+      <div className="min-h-screen bg-green-50 p-4 flex flex-col items-center justify-center">
+        <div className="w-full max-w-5xl">
+          <div className="flex items-center justify-between mb-8">
+            <button onClick={onBack} className="bg-white p-2 rounded-full shadow hover:bg-gray-50"><Home size={28}/></button>
+            <h2 className="text-3xl font-extrabold text-green-700">選擇學習概念</h2>
+            <div className="w-10"></div>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {LEVELS.map((level) => {
+              const ThemeIcon = THEMES[level.theme].icon;
+              return (
+                <button
+                  key={level.id}
+                  onClick={() => { setSelectedLevelId(level.id); setStep(0); }}
+                  className="relative p-6 rounded-2xl shadow-lg transition-all text-left group bg-white hover:-translate-y-2 hover:shadow-xl border-l-8 border-green-400 h-full flex flex-col justify-between"
+                >
+                  <div>
+                    <div className={`absolute top-4 right-4 p-2 rounded-full ${THEMES[level.theme].color}`}>
+                        <ThemeIcon className={`w-6 h-6 ${THEMES[level.theme].accent}`} />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2 text-gray-800 pr-10">{level.title}</h3>
+                    <p className="text-sm text-gray-500 mb-4">{level.desc}</p>
+                  </div>
+                  <div className="flex items-center text-green-600 font-bold mt-auto">
+                    開始學習 <ArrowRight className="w-5 h-5 ml-2" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 進入單元教學
+  const steps = selectedLevel.learnSteps || [{ text: "本單元教學內容建置中...", highlight: "none" }];
+  const currentStepData = steps[step];
+  const ThemeIcon = THEMES[selectedLevel.theme].icon;
+
+  return (
+    <div className={`min-h-screen ${THEMES[selectedLevel.theme].color} p-4 flex flex-col items-center justify-center`}>
+      <div className="bg-white p-8 rounded-3xl shadow-xl max-w-4xl w-full relative overflow-hidden flex flex-col min-h-[600px]">
+        {/* 背景裝飾 */}
+        <ThemeIcon className={`absolute -top-10 -right-10 w-48 h-48 opacity-10 ${THEMES[selectedLevel.theme].accent}`} />
+
+        <div className="flex justify-between items-center mb-6 relative z-10">
+          <div className="flex items-center">
+            <div className={`p-2 rounded-full mr-3 ${THEMES[selectedLevel.theme].color}`}>
+              <ThemeIcon className={`w-6 h-6 ${THEMES[selectedLevel.theme].accent}`} />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-700">{selectedLevel.title}</h2>
+          </div>
+          <button onClick={() => setSelectedLevelId(null)} className="text-gray-400 hover:text-gray-600"><XCircle size={28}/></button>
+        </div>
+        
+        {/* 顯示教學文字 */}
+        <div className="flex-1 flex flex-col items-center text-center relative z-10 justify-center">
+           <div className={`flex items-center justify-center text-2xl md:text-3xl font-medium leading-relaxed px-4 py-6 mb-6 w-full
+             ${currentStepData.highlight === 'formula' ? 'text-blue-600 font-bold bg-blue-50 rounded-xl border-2 border-blue-100 shadow-sm' : 
+               currentStepData.highlight === 'term' ? 'text-purple-600 font-bold' : 
+               currentStepData.highlight === 'warning' ? 'text-red-600 font-bold' : 'text-gray-700'}
+           `}>
+             {currentStepData.text}
+           </div>
+
+            {/* 錄音功能 - 放在內容下方，作為互動筆記 */}
+           <AudioRecorder />
+           
+           {/* 步驟指示器 */}
+           <div className="mt-8 mb-4 flex space-x-2">
+             {steps.map((_, i) => (
+               <div key={i} className={`h-2 rounded-full transition-all duration-300 ${i === step ? `w-8 ${THEMES[selectedLevel.theme].button.split(' ')[0]}` : 'w-2 bg-gray-200'}`}></div>
+             ))}
+           </div>
+        </div>
+
+        <div className="flex justify-between items-center relative z-10 pt-4 border-t border-gray-100">
+          <button 
+            onClick={() => setStep(Math.max(0, step - 1))}
+            disabled={step === 0}
+            className={`px-6 py-3 rounded-xl font-bold transition ${step === 0 ? 'opacity-0 cursor-default' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+          >
+            上一步
+          </button>
+
+          {step < steps.length - 1 ? (
+            <button onClick={() => setStep(step + 1)} className={`${THEMES[selectedLevel.theme].button} text-white px-8 py-3 rounded-xl text-lg font-bold shadow-lg flex items-center animate-bounce`}>
+              下一步 <ArrowRight className="ml-2" />
+            </button>
+          ) : (
+             <button onClick={() => setSelectedLevelId(null)} className="bg-gray-800 text-white px-8 py-3 rounded-xl text-lg font-bold hover:bg-black shadow-lg flex items-center">
+              完成教學 <CheckCircle className="ml-2" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- 元件: 遊戲模式 (核心功能) ---
+const GameMode = ({ onBack }) => {
+  const [gameState, setGameState] = useState('levelSelect'); // levelSelect, playing, summary, certificate
+  const [currentLevelId, setCurrentLevelId] = useState(null);
+  const [currentProblemIndex, setCurrentProblemIndex] = useState(0);
+  const [hp, setHp] = useState(3);
+  const [score, setScore] = useState(0);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [completedLevels, setCompletedLevels] = useState([]);
+  const [userName, setUserName] = useState('');
+  const [showHint, setShowHint] = useState(false);
+  const [feedback, setFeedback] = useState(null); // 'correct', 'wrong'
+  
+  // 引入音效 Hook
+  const { playCorrect, playWrong, playFanfare } = useSoundEffects();
+
+  const currentLevel = LEVELS.find(l => l.id === currentLevelId);
+  const currentProblem = currentLevel ? currentLevel.problems[currentProblemIndex] : null;
+  const theme = currentLevel ? THEMES[currentLevel.theme] : THEMES.forest;
+
+  const startLevel = (levelId) => {
+    setCurrentLevelId(levelId);
+    setGameState('playing');
+    setCurrentProblemIndex(0);
+    setHp(3);
+    setShowExplanation(false);
+    setShowHint(false);
+    setFeedback(null);
+  };
+
+  const handleAnswer = (option) => {
+    if (showExplanation) return; // Prevent clicking during explanation
+
+    if (option === currentProblem.ans) {
+      setFeedback('correct');
+      playCorrect(); // 播放正確音效
+      setScore(score + 100);
+      setTimeout(() => {
+        nextProblem();
+      }, 1500);
+    } else {
+      setFeedback('wrong');
+      playWrong(); // 播放錯誤音效 (雖然目前 playWrong 實作比較簡單)
+      setHp(prev => prev - 1);
+      setShowExplanation(true);
+      // Wait for user to click "Next" manually if wrong, so they can read explanation
+    }
+  };
+
+  const nextProblem = () => {
+    setFeedback(null);
+    setShowExplanation(false);
+    setShowHint(false);
+    
+    if (hp <= 0 && feedback !== 'correct') { 
+        setGameState('summary');
+        return;
+    }
+
+    if (currentProblemIndex < currentLevel.problems.length - 1) {
+      setCurrentProblemIndex(prev => prev + 1);
+    } else {
+      // Level Completed
+      if (!completedLevels.includes(currentLevelId)) {
+        setCompletedLevels([...completedLevels, currentLevelId]);
+      }
+      playFanfare(); // 播放過關音樂
+      setGameState('summary');
+    }
+  };
+
+  // --- 子畫面: 關卡選擇 ---
+  if (gameState === 'levelSelect') {
+    return (
+      <div className="min-h-screen bg-slate-100 p-4 flex flex-col items-center justify-center">
+        <div className="w-full max-w-5xl">
+          <div className="flex items-center justify-between mb-8">
+            <button onClick={onBack} className="bg-white p-2 rounded-full shadow hover:bg-gray-50"><Home size={28}/></button>
+            <h2 className="text-3xl font-extrabold text-slate-700">選擇冒險關卡</h2>
+            <div className="bg-yellow-400 px-4 py-2 rounded-full font-bold text-yellow-900 shadow flex items-center">
+              <Star className="w-5 h-5 mr-1 fill-current" /> 分數: {score}
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {LEVELS.map((level, idx) => {
+              const ThemeIcon = THEMES[level.theme].icon;
+              const isLocked = idx > 0 && !completedLevels.includes(LEVELS[idx-1].id);
+              const isCompleted = completedLevels.includes(level.id);
+
+              return (
+                <button
+                  key={level.id}
+                  onClick={() => !isLocked && startLevel(level.id)}
+                  disabled={isLocked}
+                  className={`relative p-6 rounded-2xl shadow-lg transition-all text-left group h-full flex flex-col justify-between
+                    ${isLocked ? 'bg-gray-200 cursor-not-allowed opacity-70' : 'bg-white hover:-translate-y-2 hover:shadow-xl'}
+                  `}
+                >
+                  <div>
+                    <div className={`absolute top-4 right-4 p-2 rounded-full ${THEMES[level.theme].color}`}>
+                        <ThemeIcon className={`w-6 h-6 ${THEMES[level.theme].accent}`} />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2 text-gray-800 pr-10">{level.title}</h3>
+                    <p className="text-sm text-gray-500 mb-4">{level.desc}</p>
+                  </div>
+                  
+                  {isCompleted ? (
+                     <div className="flex items-center text-green-500 font-bold mt-auto"><CheckCircle className="w-5 h-5 mr-1" /> 已完成</div>
+                  ) : isLocked ? (
+                     <div className="flex items-center text-gray-400 font-bold mt-auto"><Award className="w-5 h-5 mr-1" /> 請先完成上一關</div>
+                  ) : (
+                     <div className={`inline-block px-4 py-2 rounded-lg text-white text-sm font-bold mt-auto ${THEMES[level.theme].button}`}>
+                       開始挑戰
+                     </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {completedLevels.length === LEVELS.length && (
+            <div className="mt-12 text-center">
+              <button 
+                onClick={() => setGameState('certificate')}
+                className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-12 py-6 rounded-full text-2xl font-bold shadow-2xl animate-pulse transform hover:scale-105"
+              >
+                領取榮譽證書 🏆
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // --- 子畫面: 遊戲進行中 ---
+  if (gameState === 'playing') {
+    if (hp <= 0) {
+        return (
+             <div className="min-h-screen bg-gray-800 flex items-center justify-center p-4">
+                <div className="bg-white p-8 rounded-2xl text-center max-w-md w-full animate-bounce-in">
+                    <XCircle className="w-24 h-24 text-red-500 mx-auto mb-4" />
+                    <h2 className="text-3xl font-bold text-gray-800 mb-2">挑戰失敗...</h2>
+                    <p className="text-gray-600 mb-6">生命值歸零了，別氣餒，休息一下再試一次！</p>
+                    <button onClick={() => setGameState('levelSelect')} className="bg-blue-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-600 w-full">
+                        回到地圖
+                    </button>
+                </div>
+             </div>
+        )
+    }
+
+    return (
+      <div className={`min-h-screen ${theme.color} p-4 flex flex-col relative`}>
+        {/* 答對時觸發灑花特效，讓慶祝感更強烈 */}
+        {feedback === 'correct' && <Confetti />}
+
+        {/* Header */}
+        <div className="flex justify-between items-center max-w-4xl mx-auto w-full mb-6 bg-white/80 backdrop-blur p-4 rounded-xl shadow-sm relative z-10">
+          <div className="flex items-center space-x-2">
+             <button onClick={() => setGameState('levelSelect')} className="p-2 hover:bg-gray-100 rounded-full mr-2"><Home size={20}/></button>
+             <span className={`font-bold ${theme.accent}`}>{currentLevel.title}</span>
+          </div>
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center text-red-500">
+               {[...Array(3)].map((_, i) => (
+                 <Heart key={i} className={`w-8 h-8 ${i < hp ? 'fill-current' : 'text-gray-300'}`} />
+               ))}
+            </div>
+            <div className="text-xl font-bold text-yellow-600 flex items-center">
+              <Star className="w-6 h-6 mr-1 fill-current" /> {score}
+            </div>
+          </div>
+        </div>
+
+        {/* Question Card */}
+        <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto w-full relative z-10">
+          <div className="w-full bg-white rounded-3xl shadow-2xl overflow-hidden">
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 h-2">
+              <div 
+                className={`h-2 ${theme.button.split(' ')[0]}`} 
+                style={{ width: `${((currentProblemIndex) / currentLevel.problems.length) * 100}%` }}
+              ></div>
+            </div>
+
+            <div className="p-8 md:p-12">
+              <div className="flex justify-between items-start mb-6">
+                <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-bold">
+                  題目 {currentProblemIndex + 1} / {currentLevel.problems.length}
+                </span>
+                <button 
+                    onClick={() => setShowHint(!showHint)} 
+                    className="text-yellow-500 hover:text-yellow-600 flex items-center text-sm font-bold"
+                >
+                    <HelpCircle className="w-5 h-5 mr-1" /> 提示
+                </button>
+              </div>
+
+              <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8 leading-relaxed">
+                {currentProblem.q}
+              </h3>
+
+              {showHint && (
+                  <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 text-yellow-800 animate-fade-in">
+                      💡 提示：{currentProblem.hint}
+                  </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentProblem.options.map((opt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleAnswer(opt)}
+                    disabled={showExplanation || feedback === 'correct'}
+                    className={`p-6 rounded-xl text-xl font-bold transition-all transform hover:scale-102 border-b-4 
+                        ${feedback === 'correct' && opt === currentProblem.ans 
+                            ? 'bg-green-500 text-white border-green-700' 
+                            : feedback === 'wrong' && showExplanation && opt === currentProblem.ans
+                                ? 'bg-green-100 text-green-700 border-green-300' // Show correct answer when wrong
+                                : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700'
                         }
-                    };
+                        ${feedback === 'wrong' && showExplanation && opt !== currentProblem.ans ? 'opacity-50' : ''}
+                    `}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
 
-                    mediaRecorderRef.current.onstop = () => {
-                        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-                        const url = URL.createObjectURL(audioBlob);
-                        setAudioUrl(url);
-                    };
+              {/* Feedback / Explanation Area */}
+              {feedback === 'correct' && (
+                  <div className="mt-6 text-center animate-bounce-in">
+                      <div className="inline-flex items-center bg-green-100 text-green-700 px-6 py-2 rounded-full text-xl font-bold">
+                          <CheckCircle className="w-6 h-6 mr-2" /> 答對了！ +100 分
+                      </div>
+                  </div>
+              )}
 
-                    mediaRecorderRef.current.start();
-                    setIsRecording(true);
-                    setAudioUrl(null); 
-                } catch (err) {
-                    console.error("Error accessing microphone:", err);
-                    alert("無法存取麥克風，請確認您的裝置允許網頁使用麥克風功能 (需 HTTPS 或 Localhost 環境)。");
-                }
-            };
-
-            const stopRecording = () => {
-                if (mediaRecorderRef.current && isRecording) {
-                    mediaRecorderRef.current.stop();
-                    setIsRecording(false);
-                    if (mediaRecorderRef.current.stream) {
-                        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-                    }
-                }
-            };
-
-            return (
-                <div className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 mt-6 flex flex-col items-center">
-                    <h4 className="text-slate-500 font-bold mb-3 flex items-center">
-                        <Mic className="text-sm mr-1" /> 我的口說筆記
-                    </h4>
-                    
-                    <div className="flex items-center space-x-4">
-                        {!isRecording ? (
-                            <button 
-                                onClick={startRecording}
-                                className="flex items-center bg-red-500 text-white px-4 py-2 rounded-full font-bold hover:bg-red-600 transition shadow-sm"
-                            >
-                                <Mic size={20} className="mr-2" /> 開始錄音
-                            </button>
-                        ) : (
-                            <button 
-                                onClick={stopRecording}
-                                className="flex items-center bg-slate-700 text-white px-4 py-2 rounded-full font-bold hover:bg-slate-800 transition shadow-sm animate-pulse"
-                            >
-                                <Square size={20} className="mr-2 fill-current" /> 停止錄音
-                            </button>
-                        )}
-
-                        {audioUrl && !isRecording && (
-                            <div className="flex items-center space-x-2 animate-fade-in">
-                                <audio src={audioUrl} controls className="h-10 w-48" />
-                                <button 
-                                    onClick={() => setAudioUrl(null)}
-                                    className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200"
-                                    title="重新錄音"
-                                >
-                                    <RotateCcw size={20} />
-                                </button>
-                            </div>
-                        )}
+              {showExplanation && feedback !== 'correct' && (
+                <div className="mt-8 bg-red-50 p-6 rounded-xl border border-red-100 animate-slide-up">
+                    <div className="flex items-center text-red-600 font-bold text-xl mb-2">
+                        <XCircle className="w-6 h-6 mr-2" /> 哎呀，答錯了！
                     </div>
-                    {isRecording && <p className="text-red-500 text-sm mt-2 font-medium animate-pulse">正在錄音中...請說出你的重點！</p>}
-                    {!isRecording && !audioUrl && <p className="text-slate-400 text-xs mt-2">試著用自己的話說說看，錄下來聽聽看！</p>}
+                    <div className="text-gray-700 mb-4 whitespace-pre-line leading-relaxed">
+                        {currentProblem.explanation}
+                    </div>
+                    <button 
+                        onClick={nextProblem}
+                        className="bg-blue-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-600 w-full md:w-auto"
+                    >
+                        下一題
+                    </button>
                 </div>
-            );
-        };
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-        // --- 主頁面元件 ---
-        const MainMenu = ({ onSelectMode }) => (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-4 relative overflow-hidden">
-                {/* 裝飾背景 */}
-                <div className="absolute top-10 left-10 text-white/60 animate-bounce delay-1000 drop-shadow-lg font-bold text-8xl md:text-9xl pointer-events-none">π</div>
-                <div className="absolute bottom-10 right-10 text-white/60 animate-pulse drop-shadow-lg font-bold text-8xl md:text-9xl pointer-events-none">3.14</div>
+  // --- 子畫面: 關卡結算 ---
+  if (gameState === 'summary') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-100 to-orange-100 flex items-center justify-center p-4 relative overflow-hidden">
+        {/* 灑花特效 */}
+        <Confetti />
+        
+        <div className="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-lg w-full relative z-10 animate-bounce-in">
+          <Trophy className="w-32 h-32 text-yellow-400 mx-auto mb-6 drop-shadow-lg" />
+          <h2 className="text-4xl font-extrabold text-gray-800 mb-4">關卡完成！</h2>
+          <p className="text-xl text-gray-500 mb-8">你真是太厲害了！</p>
+          
+          <div className="flex justify-center space-x-8 mb-10">
+              <div className="text-center">
+                  <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">總分</div>
+                  <div className="text-3xl font-black text-blue-600">{score}</div>
+              </div>
+              <div className="text-center">
+                  <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">剩餘生命</div>
+                  <div className="text-3xl font-black text-red-500">{hp}</div>
+              </div>
+          </div>
+
+          <button 
+            onClick={() => setGameState('levelSelect')} 
+            className="w-full bg-blue-500 text-white py-4 rounded-xl text-xl font-bold hover:bg-blue-600 shadow-lg transition"
+          >
+            繼續冒險
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- 子畫面: 獎狀 ---
+  if (gameState === 'certificate') {
+    return (
+      <div className="min-h-screen bg-slate-800 p-4 flex flex-col items-center justify-center">
+        <div className="bg-white p-2 max-w-4xl w-full rounded-lg shadow-2xl mb-8">
+            <div className="border-8 border-yellow-500 p-8 md:p-16 text-center relative overflow-hidden bg-yellow-50">
+                <Award className="absolute top-4 left-4 w-24 h-24 text-yellow-200 opacity-50" />
+                <Award className="absolute bottom-4 right-4 w-24 h-24 text-yellow-200 opacity-50" />
                 
-                <div className="absolute top-20 right-20 text-white/50 drop-shadow-xl pointer-events-none" style={{ animation: 'float 6s ease-in-out infinite' }}>
-                    <PieChart size={180} />
-                </div>
+                <h1 className="text-5xl md:text-6xl font-black text-yellow-600 mb-8 font-serif tracking-widest">榮譽證書</h1>
+                
+                <p className="text-2xl text-gray-600 mb-4">茲證明</p>
+                <input 
+                    type="text" 
+                    placeholder="請輸入你的名字" 
+                    className="text-4xl md:text-5xl font-bold text-center bg-transparent border-b-4 border-gray-300 focus:border-blue-500 outline-none px-4 py-2 w-full max-w-md mb-8 text-blue-800 placeholder-gray-300"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                />
+                <p className="text-xl md:text-2xl text-gray-600 leading-relaxed mb-12">
+                    成功通過了「圓周長與扇形」的所有考驗，<br/>
+                    展現了卓越的數學能力與冒險精神！
+                </p>
 
-                <div className="absolute bottom-32 left-20 text-white/50 flex flex-col items-center drop-shadow-xl pointer-events-none" style={{ animation: 'float 7s ease-in-out infinite reverse' }}>
-                    <Circle size={140} />
-                    <Ruler size={120} className="mt-2" />
-                </div>
-
-                <div className="absolute top-1/3 left-10 text-white/40 rotate-45 drop-shadow-lg pointer-events-none" style={{ animation: 'float 5s ease-in-out infinite 1s' }}>
-                    <Scissors size={100} />
-                </div>
-                <div className="absolute bottom-1/3 right-10 text-white/40 -rotate-12 drop-shadow-lg pointer-events-none" style={{ animation: 'float 8s ease-in-out infinite' }}>
-                    <Shapes size={120} />
-                </div>
-
-                <div className="bg-white/95 backdrop-blur-sm p-8 md:p-12 rounded-3xl shadow-2xl max-w-4xl w-full text-center space-y-8 border-8 border-yellow-400 relative z-10">
-                    <div className="relative">
-                        <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-yellow-400 p-4 rounded-full shadow-lg border-4 border-white">
-                            <Trophy size={48} className="text-white" />
+                <div className="flex justify-between items-end mt-12 px-12">
+                    <div className="text-center">
+                        <div className="w-32 h-32 bg-red-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg transform rotate-12 border-4 border-white mb-2">
+                            <span className="text-xl">數學<br/>大師</span>
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-black text-indigo-600 mb-2 tracking-wider mt-6 drop-shadow-sm">
-                            數學冒險王
-                        </h1>
-                        <div className="inline-block bg-indigo-100 text-indigo-600 px-4 py-1 rounded-full text-sm font-bold mb-2">
-                            L7. 圓周長與扇形周長
-                        </div>
-                        <p className="text-gray-500 text-lg">選擇一種學習模式，開始你的數學冒險！</p>
                     </div>
-                    
-                    <div className="grid md:grid-cols-2 gap-6 mt-8">
-                        <button 
-                            onClick={() => onSelectMode('review')} 
-                            className="group relative flex flex-col items-center justify-center p-8 bg-white hover:bg-orange-50 text-orange-600 rounded-3xl shadow-lg border-2 border-orange-100 hover:border-orange-400 transition-all transform hover:-translate-y-2"
-                        >
-                            <div className="bg-orange-100 p-4 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
-                                <BookOpen size={48} />
-                            </div>
-                            <div className="font-black text-2xl mb-1">重點祕笈</div>
-                            <div className="text-sm text-gray-400 font-medium">Review Mode</div>
-                        </button>
-                        
-                        <button 
-                            onClick={() => onSelectMode('learn')} 
-                            className="group relative flex flex-col items-center justify-center p-8 bg-white hover:bg-green-50 text-green-600 rounded-3xl shadow-lg border-2 border-green-100 hover:border-green-400 transition-all transform hover:-translate-y-2"
-                        >
-                            <div className="bg-green-100 p-4 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
-                                <GraduationCap size={48} />
-                            </div>
-                            <div className="font-black text-2xl mb-1">互動教學</div>
-                            <div className="text-sm text-gray-400 font-medium">Learning Mode</div>
-                        </button>
-
-                        <button 
-                            onClick={() => onSelectMode('game')} 
-                            className="group relative flex flex-col items-center justify-center p-8 bg-white hover:bg-indigo-50 text-indigo-600 rounded-3xl shadow-lg border-2 border-indigo-100 hover:border-indigo-400 transition-all transform hover:-translate-y-2 md:col-span-2"
-                        >
-                            <div className="bg-indigo-100 p-4 rounded-2xl mb-4 group-hover:rotate-12 transition-transform">
-                                <Map size={48} />
-                            </div>
-                            <div className="font-black text-2xl mb-1">冒險闖關 (遊戲模式)</div>
-                            <div className="text-sm text-gray-400 font-medium">Game Mode</div>
-                            <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full animate-bounce shadow-md">
-                                HOT!
-                            </div>
-                        </button>
-                    </div>
-                    
-                    <div className="text-gray-400 text-sm font-medium pt-4">
-                        適合國小六年級 • 數學單元
+                    <div className="text-right">
+                        <p className="text-lg text-gray-500 border-t-2 border-gray-400 pt-2 px-8">日期：{new Date().toLocaleDateString()}</p>
                     </div>
                 </div>
             </div>
-        );
+        </div>
+        <div className="flex space-x-4">
+             <button onClick={() => window.print()} className="bg-white text-slate-800 px-6 py-3 rounded-lg font-bold hover:bg-gray-100">列印證書</button>
+             <button onClick={() => setGameState('levelSelect')} className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700">回到首頁</button>
+        </div>
+      </div>
+    );
+  }
 
-        // --- 重點複習模式 ---
-        const ReviewMode = ({ onBack }) => {
-            const [page, setPage] = useState(0);
+  return null;
+};
 
-            return (
-                <div className="min-h-screen bg-orange-50 p-4 flex flex-col items-center">
-                    <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden min-h-[500px] flex flex-col relative">
-                        <div className="bg-orange-400 p-4 text-white flex items-center justify-between">
-                            <button onClick={onBack} className="p-2 hover:bg-white/20 rounded-full"><Home size={24} /></button>
-                            <h2 className="text-2xl font-bold">重點祕笈</h2>
-                            <div className="w-8"></div>
-                        </div>
+// --- 主程式入口 ---
+const App = () => {
+  const [mode, setMode] = useState('menu'); // menu, review, learn, quiz, game
 
-                        <div className="flex-1 p-8 flex flex-col items-center justify-center text-center">
-                            <h3 className="text-3xl font-bold text-gray-800 mb-8">{LEARNING_CONTENT[page].title}</h3>
-                            <div className="text-xl text-gray-600 leading-relaxed w-full">
-                                {LEARNING_CONTENT[page].content}
-                            </div>
-                        </div>
+  return (
+    <div className="font-sans text-gray-800">
+      {mode === 'menu' && <MainMenu onSelectMode={setMode} />}
+      {mode === 'review' && <ReviewMode onBack={() => setMode('menu')} />}
+      {mode === 'learn' && <LearnMode onBack={() => setMode('menu')} />}
+      {mode === 'game' && <GameMode onBack={() => setMode('menu')} />}
+      {/* 簡化：將 Quiz 整合進 Game 模式，或可未來擴充 */}
+    </div>
+  );
+};
 
-                        <div className="p-6 bg-gray-50 flex justify-between items-center border-t">
-                            <button 
-                                onClick={() => setPage(Math.max(0, page - 1))}
-                                disabled={page === 0}
-                                className={`flex items-center px-4 py-2 rounded-lg font-bold ${page === 0 ? 'bg-gray-200 text-gray-400' : 'bg-orange-100 text-orange-600 hover:bg-orange-200'}`}
-                            >
-                                上一頁
-                            </button>
-                            <span className="font-bold text-gray-400">{page + 1} / {LEARNING_CONTENT.length}</span>
-                            <button 
-                                onClick={() => setPage(Math.min(LEARNING_CONTENT.length - 1, page + 1))}
-                                disabled={page === LEARNING_CONTENT.length - 1}
-                                className={`flex items-center px-4 py-2 rounded-lg font-bold ${page === LEARNING_CONTENT.length - 1 ? 'bg-gray-200 text-gray-400' : 'bg-orange-100 text-orange-600 hover:bg-orange-200'}`}
-                            >
-                                下一頁
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- 互動教學模式 ---
-        const LearnMode = ({ onBack }) => {
-            const [selectedLevelId, setSelectedLevelId] = useState(null);
-            const [step, setStep] = useState(0);
-
-            const selectedLevel = LEVELS.find(l => l.id === selectedLevelId);
-
-            if (!selectedLevelId) {
-                return (
-                    <div className="min-h-screen bg-green-50 p-4">
-                        <div className="max-w-4xl mx-auto">
-                            <div className="flex items-center justify-between mb-8">
-                                <button onClick={onBack} className="bg-white p-2 rounded-full shadow hover:bg-gray-50"><Home /></button>
-                                <h2 className="text-3xl font-extrabold text-green-700">選擇學習概念</h2>
-                            </div>
-
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {LEVELS.map((level) => {
-                                    const ThemeIcon = THEMES[level.theme].icon;
-                                    return (
-                                        <button
-                                            key={level.id}
-                                            onClick={() => { setSelectedLevelId(level.id); setStep(0); }}
-                                            className="relative p-6 rounded-2xl shadow-lg transition-all text-left group bg-white hover:-translate-y-2 hover:shadow-xl border-l-8 border-green-400"
-                                        >
-                                            <div className={`absolute top-4 right-4 p-2 rounded-full ${THEMES[level.theme].color}`}>
-                                                <ThemeIcon className={`w-6 h-6 ${THEMES[level.theme].accent}`} />
-                                            </div>
-                                            <h3 className="text-xl font-bold mb-2 text-gray-800">{level.title}</h3>
-                                            <p className="text-sm text-gray-500 mb-4">{level.desc}</p>
-                                            <div className="flex items-center text-green-600 font-bold mt-4">
-                                                開始學習 <ArrowRight className="w-5 h-5 ml-2" />
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            const steps = selectedLevel.learnSteps || [{ text: "本單元教學內容建置中...", highlight: "none" }];
-            const currentStepData = steps[step];
-            const ThemeIcon = THEMES[selectedLevel.theme].icon;
-
-            return (
-                <div className={`min-h-screen ${THEMES[selectedLevel.theme].color} p-4 flex flex-col items-center justify-center`}>
-                    <div className="bg-white p-8 rounded-3xl shadow-xl max-w-2xl w-full relative overflow-hidden flex flex-col min-h-[600px]">
-                        {/* Background Decoration */}
-                        <div className={`absolute -top-10 -right-10 w-48 h-48 opacity-10 ${THEMES[selectedLevel.theme].accent}`}>
-                            <ThemeIcon size={180} />
-                        </div>
-
-                        <div className="flex justify-between items-center mb-6 relative z-10">
-                            <div className="flex items-center">
-                                <div className={`p-2 rounded-full mr-3 ${THEMES[selectedLevel.theme].color}`}>
-                                    <ThemeIcon className={`w-6 h-6 ${THEMES[selectedLevel.theme].accent}`} />
-                                </div>
-                                <h2 className="text-xl md:text-2xl font-bold text-gray-700">{selectedLevel.title}</h2>
-                            </div>
-                            <button onClick={() => setSelectedLevelId(null)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
-                        </div>
-                        
-                        <div className="flex-1 flex flex-col items-center text-center relative z-10">
-                            <div className={`flex-1 flex items-center justify-center text-2xl md:text-3xl font-medium leading-relaxed px-4
-                                ${currentStepData.highlight === 'formula' ? 'text-blue-600 font-bold bg-blue-50 p-6 rounded-xl border-2 border-blue-100 shadow-sm w-full' : 
-                                currentStepData.highlight === 'term' ? 'text-purple-600 font-bold' : 
-                                currentStepData.highlight === 'warning' ? 'text-red-600 font-bold' : 'text-gray-700'}
-                            `}>
-                                {currentStepData.text}
-                            </div>
-
-                            <AudioRecorder />
-                            
-                            <div className="mt-8 mb-4 flex space-x-2">
-                                {steps.map((_, i) => (
-                                    <div key={i} className={`h-2 rounded-full transition-all duration-300 ${i === step ? `w-8 ${THEMES[selectedLevel.theme].button.split(' ')[0]}` : 'w-2 bg-gray-200'}`}></div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="flex justify-between items-center relative z-10 pt-4 border-t border-gray-100">
-                            <button 
-                                onClick={() => setStep(Math.max(0, step - 1))}
-                                disabled={step === 0}
-                                className={`px-6 py-3 rounded-xl font-bold transition ${step === 0 ? 'opacity-0 cursor-default' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                            >
-                                上一步
-                            </button>
-
-                            {step < steps.length - 1 ? (
-                                <button onClick={() => setStep(step + 1)} className={`${THEMES[selectedLevel.theme].button} text-white px-8 py-3 rounded-xl text-lg font-bold shadow-lg flex items-center animate-bounce`}>
-                                    下一步 <ArrowRight className="ml-2" />
-                                </button>
-                            ) : (
-                                <button onClick={() => setSelectedLevelId(null)} className="bg-gray-800 text-white px-8 py-3 rounded-xl text-lg font-bold hover:bg-black shadow-lg flex items-center">
-                                    完成教學 <CheckCircle className="ml-2" />
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- 遊戲模式 ---
-        const GameMode = ({ onBack }) => {
-            // LocalStorage Keys
-            const STORAGE_KEY_COMPLETED = 'math_adventure_completed';
-            const STORAGE_KEY_SCORE = 'math_adventure_score';
-
-            const [gameState, setGameState] = useState('levelSelect');
-            const [currentLevelId, setCurrentLevelId] = useState(null);
-            const [currentProblemIndex, setCurrentProblemIndex] = useState(0);
-            const [hp, setHp] = useState(3);
-            const [score, setScore] = useState(() => {
-                const saved = localStorage.getItem(STORAGE_KEY_SCORE);
-                return saved ? parseInt(saved, 10) : 0;
-            });
-            const [showExplanation, setShowExplanation] = useState(false);
-            const [completedLevels, setCompletedLevels] = useState(() => {
-                const saved = localStorage.getItem(STORAGE_KEY_COMPLETED);
-                return saved ? JSON.parse(saved) : [];
-            });
-            const [userName, setUserName] = useState('');
-            const [showHint, setShowHint] = useState(false);
-            const [feedback, setFeedback] = useState(null);
-            
-            const { playCorrect, playWrong, playFanfare } = useSoundEffects();
-
-            // Save progress
-            useEffect(() => {
-                localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(completedLevels));
-                localStorage.setItem(STORAGE_KEY_SCORE, score.toString());
-            }, [completedLevels, score]);
-
-            const currentLevel = LEVELS.find(l => l.id === currentLevelId);
-            const currentProblem = currentLevel ? currentLevel.problems[currentProblemIndex] : null;
-            const theme = currentLevel ? THEMES[currentLevel.theme] : THEMES.forest;
-
-            const startLevel = (levelId) => {
-                setCurrentLevelId(levelId);
-                setGameState('playing');
-                setCurrentProblemIndex(0);
-                setHp(3);
-                setShowExplanation(false);
-                setShowHint(false);
-                setFeedback(null);
-            };
-
-            const handleAnswer = (option) => {
-                if (showExplanation) return;
-
-                if (option === currentProblem.ans) {
-                    setFeedback('correct');
-                    playCorrect();
-                    setScore(prev => prev + 100);
-                    setTimeout(() => {
-                        nextProblem();
-                    }, 1500);
-                } else {
-                    setFeedback('wrong');
-                    playWrong();
-                    setHp(prev => prev - 1);
-                    setShowExplanation(true);
-                }
-            };
-
-            const nextProblem = () => {
-                setFeedback(null);
-                setShowExplanation(false);
-                setShowHint(false);
-                
-                if (hp <= 0 && feedback !== 'correct') { 
-                    setGameState('summary');
-                    return;
-                }
-
-                if (currentProblemIndex < currentLevel.problems.length - 1) {
-                    setCurrentProblemIndex(prev => prev + 1);
-                } else {
-                    if (!completedLevels.includes(currentLevelId)) {
-                        setCompletedLevels(prev => [...prev, currentLevelId]);
-                    }
-                    playFanfare();
-                    setGameState('summary');
-                }
-            };
-
-            if (gameState === 'levelSelect') {
-                return (
-                    <div className="min-h-screen bg-slate-100 p-4">
-                        <div className="max-w-4xl mx-auto">
-                            <div className="flex items-center justify-between mb-8">
-                                <button onClick={onBack} className="bg-white p-2 rounded-full shadow hover:bg-gray-50"><Home /></button>
-                                <h2 className="text-3xl font-extrabold text-slate-700">選擇冒險關卡</h2>
-                                <div className="bg-yellow-400 px-4 py-2 rounded-full font-bold text-yellow-900 shadow flex items-center">
-                                    <Star className="w-5 h-5 mr-1 fill-current" /> 分數: {score}
-                                </div>
-                            </div>
-
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {LEVELS.map((level, idx) => {
-                                    const ThemeIcon = THEMES[level.theme].icon;
-                                    const isLocked = idx > 0 && !completedLevels.includes(LEVELS[idx-1].id);
-                                    const isCompleted = completedLevels.includes(level.id);
-
-                                    return (
-                                        <button
-                                            key={level.id}
-                                            onClick={() => !isLocked && startLevel(level.id)}
-                                            disabled={isLocked}
-                                            className={`relative p-6 rounded-2xl shadow-lg transition-all text-left group
-                                                ${isLocked ? 'bg-gray-200 cursor-not-allowed opacity-70' : 'bg-white hover:-translate-y-2 hover:shadow-xl'}
-                                            `}
-                                        >
-                                            <div className={`absolute top-4 right-4 p-2 rounded-full ${THEMES[level.theme].color}`}>
-                                                <ThemeIcon className={`w-6 h-6 ${THEMES[level.theme].accent}`} />
-                                            </div>
-                                            <h3 className="text-xl font-bold mb-2 text-gray-800">{level.title}</h3>
-                                            <p className="text-sm text-gray-500 mb-4">{level.desc}</p>
-                                            
-                                            {isCompleted ? (
-                                                <div className="flex items-center text-green-500 font-bold"><CheckCircle className="w-5 h-5 mr-1" /> 已完成</div>
-                                            ) : isLocked ? (
-                                                <div className="flex items-center text-gray-400 font-bold"><Award className="w-5 h-5 mr-1" /> 請先完成上一關</div>
-                                            ) : (
-                                                <div className={`inline-block px-4 py-2 rounded-lg text-white text-sm font-bold ${THEMES[level.theme].button}`}>
-                                                開始挑戰
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {completedLevels.length === LEVELS.length && (
-                                <div className="mt-12 text-center">
-                                    <button 
-                                        onClick={() => setGameState('certificate')}
-                                        className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-12 py-6 rounded-full text-2xl font-bold shadow-2xl animate-pulse transform hover:scale-105"
-                                    >
-                                        領取榮譽證書 🏆
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                );
-            }
-
-            if (gameState === 'playing') {
-                if (hp <= 0) {
-                    return (
-                        <div className="min-h-screen bg-gray-800 flex items-center justify-center p-4">
-                            <div className="bg-white p-8 rounded-2xl text-center max-w-md w-full animate-bounce-in">
-                                <XCircle className="w-24 h-24 text-red-500 mx-auto mb-4" />
-                                <h2 className="text-3xl font-bold text-gray-800 mb-2">挑戰失敗...</h2>
-                                <p className="text-gray-600 mb-6">生命值歸零了，別氣餒，休息一下再試一次！</p>
-                                <button onClick={() => setGameState('levelSelect')} className="bg-blue-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-600 w-full">
-                                    回到地圖
-                                </button>
-                            </div>
-                        </div>
-                    )
-                }
-
-                return (
-                    <div className={`min-h-screen ${theme.color} p-4 flex flex-col`}>
-                        {/* Header */}
-                        <div className="flex justify-between items-center max-w-4xl mx-auto w-full mb-6 bg-white/80 backdrop-blur p-4 rounded-xl shadow-sm">
-                            <div className="flex items-center space-x-2">
-                                <button onClick={() => setGameState('levelSelect')} className="p-2 hover:bg-gray-100 rounded-full mr-2"><Home size={20}/></button>
-                                <span className={`font-bold ${theme.accent}`}>{currentLevel.title}</span>
-                            </div>
-                            <div className="flex items-center space-x-6">
-                                <div className="flex items-center text-red-500">
-                                    {[...Array(3)].map((_, i) => (
-                                        <Heart key={i} size={32} className={`mr-1 ${i < hp ? 'fill-current' : 'text-gray-300'}`} />
-                                    ))}
-                                </div>
-                                <div className="text-xl font-bold text-yellow-600 flex items-center">
-                                    <Star className="w-6 h-6 mr-1 fill-current" /> {score}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Question Card */}
-                        <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto w-full">
-                            <div className="w-full bg-white rounded-3xl shadow-2xl overflow-hidden">
-                                {/* Progress Bar */}
-                                <div className="w-full bg-gray-200 h-2">
-                                    <div 
-                                        className={`h-2 ${theme.button.split(' ')[0]}`} 
-                                        style={{ width: `${((currentProblemIndex) / currentLevel.problems.length) * 100}%` }}
-                                    ></div>
-                                </div>
-
-                                <div className="p-8 md:p-12">
-                                    <div className="flex justify-between items-start mb-6">
-                                        <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-bold">
-                                            題目 {currentProblemIndex + 1} / {currentLevel.problems.length}
-                                        </span>
-                                        <button 
-                                            onClick={() => setShowHint(!showHint)} 
-                                            className="text-yellow-500 hover:text-yellow-600 flex items-center text-sm font-bold"
-                                        >
-                                            <HelpCircle className="w-5 h-5 mr-1" /> 提示
-                                        </button>
-                                    </div>
-
-                                    <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8 leading-relaxed">
-                                        {currentProblem.q}
-                                    </h3>
-
-                                    {showHint && (
-                                        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 text-yellow-800 animate-fade-in">
-                                            💡 提示：{currentProblem.hint}
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {currentProblem.options.map((opt, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => handleAnswer(opt)}
-                                                disabled={showExplanation || feedback === 'correct'}
-                                                className={`p-6 rounded-xl text-xl font-bold transition-all transform hover:scale-102 border-b-4 
-                                                    ${feedback === 'correct' && opt === currentProblem.ans 
-                                                        ? 'bg-green-500 text-white border-green-700' 
-                                                        : feedback === 'wrong' && showExplanation && opt === currentProblem.ans
-                                                            ? 'bg-green-100 text-green-700 border-green-300' 
-                                                            : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700'
-                                                    }
-                                                    ${feedback === 'wrong' && showExplanation && opt !== currentProblem.ans ? 'opacity-50' : ''}
-                                                `}
-                                            >
-                                                {opt}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {feedback === 'correct' && (
-                                        <div className="mt-6 text-center animate-bounce-in">
-                                            <div className="inline-flex items-center bg-green-100 text-green-700 px-6 py-2 rounded-full text-xl font-bold">
-                                                <CheckCircle className="w-6 h-6 mr-2" /> 答對了！ +100 分
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {showExplanation && feedback !== 'correct' && (
-                                        <div className="mt-8 bg-red-50 p-6 rounded-xl border border-red-100 animate-slide-up">
-                                            <div className="flex items-center text-red-600 font-bold text-xl mb-2">
-                                                <XCircle className="w-6 h-6 mr-2" /> 哎呀，答錯了！
-                                            </div>
-                                            <div className="text-gray-700 mb-4 whitespace-pre-line leading-relaxed">
-                                                {currentProblem.explanation}
-                                            </div>
-                                            <button 
-                                                onClick={nextProblem}
-                                                className="bg-blue-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-600 w-full md:w-auto"
-                                            >
-                                                下一題
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            if (gameState === 'summary') {
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-yellow-100 to-orange-100 flex items-center justify-center p-4 relative overflow-hidden">
-                        <Confetti />
-                        
-                        <div className="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-lg w-full relative z-10 animate-bounce-in">
-                            <Trophy className="w-32 h-32 text-yellow-400 mx-auto mb-6 drop-shadow-lg" />
-                            <h2 className="text-4xl font-extrabold text-gray-800 mb-4">關卡完成！</h2>
-                            <p className="text-xl text-gray-500 mb-8">你真是太厲害了！</p>
-                            
-                            <div className="flex justify-center space-x-8 mb-10">
-                                <div className="text-center">
-                                    <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">總分</div>
-                                    <div className="text-3xl font-black text-blue-600">{score}</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">剩餘生命</div>
-                                    <div className="text-3xl font-black text-red-500">{hp}</div>
-                                </div>
-                            </div>
-
-                            <button 
-                                onClick={() => setGameState('levelSelect')} 
-                                className="w-full bg-blue-500 text-white py-4 rounded-xl text-xl font-bold hover:bg-blue-600 shadow-lg transition"
-                            >
-                                繼續冒險
-                            </button>
-                        </div>
-                    </div>
-                );
-            }
-
-            if (gameState === 'certificate') {
-                return (
-                    <div className="min-h-screen bg-slate-800 p-4 flex flex-col items-center justify-center">
-                        <div className="bg-white p-2 max-w-4xl w-full rounded-lg shadow-2xl mb-8">
-                            <div className="border-8 border-yellow-500 p-8 md:p-16 text-center relative overflow-hidden bg-yellow-50">
-                                <Award className="absolute top-4 left-4 w-24 h-24 text-yellow-200 opacity-50" />
-                                <Award className="absolute bottom-4 right-4 w-24 h-24 text-yellow-200 opacity-50" />
-                                
-                                <h1 className="text-5xl md:text-6xl font-black text-yellow-600 mb-8 font-serif tracking-widest">榮譽證書</h1>
-                                
-                                <p className="text-2xl text-gray-600 mb-4">茲證明</p>
-                                <input 
-                                    type="text" 
-                                    placeholder="請輸入你的名字" 
-                                    className="text-4xl md:text-5xl font-bold text-center bg-transparent border-b-4 border-gray-300 focus:border-blue-500 outline-none px-4 py-2 w-full max-w-md mb-8 text-blue-800 placeholder-gray-300"
-                                    value={userName}
-                                    onChange={(e) => setUserName(e.target.value)}
-                                />
-                                <p className="text-xl md:text-2xl text-gray-600 leading-relaxed mb-12">
-                                    成功通過了「圓周長與扇形」的所有考驗，<br/>
-                                    展現了卓越的數學能力與冒險精神！
-                                </p>
-
-                                <div className="flex justify-between items-end mt-12 px-12">
-                                    <div className="text-center">
-                                        <div className="w-32 h-32 bg-red-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg transform rotate-12 border-4 border-white mb-2">
-                                            <span className="text-xl">數學<br/>大師</span>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-lg text-gray-500 border-t-2 border-gray-400 pt-2 px-8">日期：{new Date().toLocaleDateString()}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex space-x-4">
-                            <button onClick={() => window.print()} className="bg-white text-slate-800 px-6 py-3 rounded-lg font-bold hover:bg-gray-100">列印證書</button>
-                            <button onClick={() => setGameState('levelSelect')} className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700">回到首頁</button>
-                        </div>
-                    </div>
-                );
-            }
-
-            return null;
-        };
-
-        const App = () => {
-            const [mode, setMode] = useState('menu');
-
-            return (
-                <div className="font-sans text-gray-800">
-                    {mode === 'menu' && <MainMenu onSelectMode={setMode} />}
-                    {mode === 'review' && <ReviewMode onBack={() => setMode('menu')} />}
-                    {mode === 'learn' && <LearnMode onBack={() => setMode('menu')} />}
-                    {mode === 'game' && <GameMode onBack={() => setMode('menu')} />}
-                </div>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+export default App;
